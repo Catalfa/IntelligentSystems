@@ -1,9 +1,11 @@
 #Importing Library
+#install.packages("caret")
+#install.packages("randomForest")
 library(caret)
 
 #Importing Training & Testing Dataset
-train_orig <- read.csv("dataset\\Mnist_Train.csv")
-test_orig <- read.csv("dataset\\Mnist_Test.csv")
+train_orig <- read.csv("progetto_esame/dataset/Mnist_Train.csv")
+test_orig <- read.csv("progetto_esame/dataset/Mnist_Test.csv")
 
 ncol_train <- ncol(train_orig)
 ncol_test <- ncol(test_orig)
@@ -21,7 +23,7 @@ train_orig_labels <- as.factor(train_orig_labels)
 train_data <- train_orig[, -1]
 
 # Numero di alberi da costruire
-num_trees <- 50
+num_trees <- 100
 
 # Addestra il modello random forest
 rf <- randomForest(x = train_data, y = train_orig_labels, ntree = num_trees)
