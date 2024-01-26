@@ -1,6 +1,6 @@
 reticulate::use_python("/Library/Developer/CommandLineTools/usr/bin/python3")
 
-# Installa le librerie se non sono già installate
+# Install libraries if not already installed
 if (!requireNamespace("caret", quietly = TRUE)) {
   install.packages("caret")
 }
@@ -25,8 +25,7 @@ if (!requireNamespace("keras", quietly = TRUE)) {
   install.packages("keras")
 }
 
-
-# Carica le librerie necessarie
+# Load necessary libraries
 library(caret)
 library(dplyr)
 library(maps)
@@ -36,11 +35,10 @@ library(keras)
 library(installr)
 library(nnet)
 
-
-# Carica il file CSV
+# Load CSV file
 train_orig <- read.csv("progetto_esame/dataset/database.csv")
 
-# Creazione della colonna Timestamp
+# Create Timestamp column
 timestamp <- vector("numeric", length = nrow(train_orig))
 for (i in 1:nrow(train_orig)) {
   tryCatch({
@@ -51,46 +49,46 @@ for (i in 1:nrow(train_orig)) {
   })
 }
 
-# Aggiunge la colonna Timestamp al dataframe
+# Add Timestamp column to the dataframe
 train_orig$Timestamp <- timestamp
 
-# Rimuovi le righe con 'ValueError'
+# Remove rows with 'ValueError'
 final_data <- train_orig[!is.na(train_orig$Timestamp) & train_orig$Timestamp != 'ValueError', ]
 
-# Rimuovi le colonne 'Date' e 'Time'
+# Remove 'Date' and 'Time' columns
 final_data <- final_data[, !(names(final_data) %in% c("Date", "Time"))]
 
-# Mostra le prime righe del dataframe finale
+# Display the first rows of the final dataframe
 print(head(final_data))
 
-# Creazione della mappa senza specificare la proiezione
+# Create a map without specifying the projection
 m <- map_data("world")
 
-# Estrai le coordinate
+# Extract coordinates
 longitudes <- final_data$Longitude
 latitudes <- final_data$Latitude
 
-# Trasforma le coordinate
+# Transform coordinates
 xy <- mapproject(longitudes, latitudes)
 
-# Imposta le proporzioni dell'immagine
+# Set image proportions
 par(pin = c(10 , 5))
 
-# Crea il grafico con intervallo più ampio sull'asse x
+# Create a plot with a wider range on the x-axis
 plot(xy, col = 'blue', pch = 16, cex = 0.5, main = "All affected areas", xlim = c(-180, 180))
 
-# Aggiungi la mappa del mondo
+# Add the world map
 map("world", add = TRUE, col = "black", fill = FALSE)
 
-# Creazione del dataframe X e y
+# Create X and y dataframe
 X <- final_data[c('Timestamp', 'Latitude', 'Longitude')]
 y <- final_data[c('Magnitude', 'Depth')]
 
-# Estrai solo le colonne di output necessarie
+# Extract only necessary output columns
 y <- final_data[, c('Magnitude', 'Depth')]
 
-# Split dei dati in training e test set
-set.seed(42)  # Imposta il seed per la riproducibilità
+# Split data into training and test sets
+set.seed(42)  # Set seed for reproducibility
 split_ratio <- 0.8
 indices <- createDataPartition(y$Magnitude, p = split_ratio, list = FALSE)
 
@@ -99,7 +97,7 @@ y_train <- y[indices, ]
 X_test <- X[-indices, ]
 y_test <- y[-indices, ]
 
-# Mostra le dimensioni dei set di training e test
+# Display dimensions of training and test sets
 cat("Training set dimensions:", dim(X_train), dim(y_train), "\n")
 cat("Test set dimensions:", dim(X_test), dim(y_test), "\n")
 
@@ -107,10 +105,10 @@ cat("Test set dimensions:", dim(X_test), dim(y_test), "\n")
 soglia <- 5.0
 
 # Modify the output variable for classification
-y_train_class <- ifelse(y_train$Magnitude >= soglia, "Alta", "Bassa")
-y_test_class <- ifelse(y_test$Magnitude >= soglia, "Alta", "Bassa")
+y_train_class <- ifelse(y_train$Magnitude >= soglia, "High", "Low")
+y_test_class <- ifelse(y_test$Magnitude >= soglia, "High", "Low")
 
-# Modifica la funzione create_model
+# Modify the create_model function
 create_model <- function(size, decay, activation, optimizer, loss, ...) {
   model <- nnet::nnet(
     Magnitude ~ Timestamp + Latitude + Longitude,
@@ -124,10 +122,10 @@ create_model <- function(size, decay, activation, optimizer, loss, ...) {
   return(model)
 }
 
-# Specifica i parametri della griglia per la regressione
+# Specify grid parameters for regression
 param_grid_nnet <- expand.grid(
-  size = c(5, 10, 15),  # Esempio di valori per la dimensione del layer nascosto
-  decay = c(0.001, 0.01, 0.1),  # Esempio di valori per il parametro di decadimento
+  size = c(5, 10, 15),  # Example values for the size of the hidden layer
+  decay = c(0.001, 0.01, 0.1),  # Example values for the decay parameter
   activation = activation,
   optimizer = optimizer,
   loss = loss
@@ -144,17 +142,17 @@ loss <- "mean_squared_error"
 y_train <- final_data[indices, c('Magnitude', 'Depth')]
 y_test <- final_data[-indices, c('Magnitude', 'Depth')]
 
-# Rimuovi le righe con valori mancanti nella variabile target
+# Remove rows with missing values in the target variable
 complete_rows <- complete.cases(y_train)
 X_train <- X_train[complete_rows, ]
 y_train <- y_train[complete_rows, ]
 
 summary(y_train$Magnitude)
 
-# Verifica i tipi di dati delle colonne rilevanti
+# Check data types of relevant columns
 str(final_data)
 
-# Creazione di un oggetto GridSearchCV con la libreria caret per la classificazione
+# Create a GridSearchCV object with the caret library for classification
 grid_regressor <- caret::train(
   x = as.data.frame(X_train),
   y = y_train$Magnitude,
@@ -164,10 +162,9 @@ grid_regressor <- caret::train(
   tuneGrid = expand.grid(size = c(5, 10, 15), decay = c(0.001, 0.01, 0.1))
 )
 
-# Predici i valori sulla base del set di test
+# Predict values based on the test set
 predictions <- predict(grid_regressor, newdata = as.data.frame(X_test))
 
-# Calcola l'errore quadratico medio (RMSE)
+# Calculate the Root Mean Squared Error (RMSE)
 rmse <- sqrt(mean((predictions - y_test$Magnitude)^2))
 cat("RMSE:", rmse, "\n")
-
